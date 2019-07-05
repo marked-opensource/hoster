@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/marked-opensource/hoster.svg?branch=master)](https://travis-ci.com/marked-opensource/hoster)
+
 # Hoster
 
 Hoster, the `/etc/hosts` toaster.
