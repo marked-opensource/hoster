@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"hoster/hoster"
 	"log"
 	"os"
 
@@ -19,17 +19,13 @@ func main() {
 			Name:    "activate",
 			Aliases: []string{"a"},
 			Usage:   "activate given host env",
-			Action: func(c *cli.Context) {
-				fmt.Printf("TODO activate %s\n", c.Args().First())
-			},
+			Action:  hoster.NewActivationHandler().Handle,
 		},
 		{
 			Name:    "deactivate",
 			Aliases: []string{"a"},
 			Usage:   "deactivate given host env",
-			Action: func(c *cli.Context) {
-				fmt.Printf("TODO deactivate %s\n", c.Args().First())
-			},
+			Action:  hoster.NewDeactivationHandler().Handle,
 		},
 	}
 
