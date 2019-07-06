@@ -12,6 +12,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "hoster"
 	app.Usage = "env manager for /etc/hosts"
+	app.Version = os.Getenv("HOSTER_BUILD_VER")
 
 	app.Commands = []cli.Command{
 		{
