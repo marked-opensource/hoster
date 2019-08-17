@@ -1,48 +1,69 @@
 package utils
 
-type IRulesEnvFile interface {
-	CommentReprBegin() string
-	CommentReprEnd() string
-	FilePath() string
-	FileBytes() []byte
-}
-
-type rulesEnvFile struct {
-	filePath string
-}
-
-func (*rulesEnvFile) CommentReprBegin() string {
-	panic("implement me")
-}
-
-func (*rulesEnvFile) CommentReprEnd() string {
-	panic("implement me")
-}
-
-func (*rulesEnvFile) FilePath() string {
-	panic("implement me")
-}
-
-func (*rulesEnvFile) FileBytes() []byte {
-	panic("implement me")
-}
+import (
+	"bufio"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"regexp"
+)
 
 type IFileUtils interface {
-	InjectRule(file IRulesEnvFile)
-	ClearRule(file IRulesEnvFile)
+	InjectRule(envRulesPath string) error
+	ClearRule(envRulesPat string) error
 	ClearAll()
 }
 
 type fileUtils struct {
-	envFile IRulesEnvFile
+	envFile string
 }
 
-func (*fileUtils) InjectRule(file IRulesEnvFile) {
-	panic("implement me")
+const hosterHostsBlockPrefix string = "^\\# Added by Hoster"
+
+const hosterBlock string = `
+# Added by Hoster
+# End of section
+`
+
+func (fu *fileUtils) EnsureHosterBlock() (err error) {
+	file, err := os.OpenFile(fu.envFile, os.O_APPEND|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		matched, err := regexp.Match(hosterHostsBlockPrefix, scanner.Bytes())
+		if err != nil {
+			panic(err)
+		}
+		if matched {
+			return err
+		}
+	}
+	if err = scanner.Err(); err != nil {
+		panic(err)
+	}
+
+	_, err = file.WriteString(hosterBlock)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
-func (*fileUtils) ClearRule(file IRulesEnvFile) {
-	panic("implement me")
+func (*fileUtils) InjectRule(envRulesPath string) (err error) {
+	data, err := ioutil.ReadFile(envRulesPath)
+	if err != nil {
+		return
+	}
+	fmt.Print(data)
+	return
+}
+
+func (*fileUtils) ClearRule(envRulesPath string) (err error) {
+	return
 }
 
 func (*fileUtils) ClearAll() {
@@ -51,6 +72,6 @@ func (*fileUtils) ClearAll() {
 
 func NewFileUtils(filePath string) IFileUtils {
 	return &fileUtils{
-		envFile: &rulesEnvFile{filePath: filePath},
+		envFile: filePath,
 	}
 }
