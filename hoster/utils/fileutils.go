@@ -39,7 +39,7 @@ func (fu *fileUtils) EnsureHosterBlock() (err error) {
 			panic(err)
 		}
 		if matched {
-			return err
+			return nil
 		}
 	}
 	if err = scanner.Err(); err != nil {
