@@ -8,6 +8,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/looplab/fsm"
 )
 
 type IFileUtils interface {
@@ -54,6 +56,18 @@ type EnabledRules interface {
 	ReadRule(ruleName string) (string, error)
 }
 
+type fsmWrapper struct {
+	fsm *fsm.FSM
+}
+
+func (fsw *fsmWrapper) StateAwareAppendLine(outputLines []string, line string) []string {
+	if fsw.fsm.Current() == "base" {
+		return append(outputLines, line)
+	}
+
+	return outputLines
+}
+
 func (fu *fileUtils) RefreshRules() error {
 	rules, err := fu.enabledRules.GetAll()
 	if err != nil {
@@ -65,12 +79,25 @@ func (fu *fileUtils) RefreshRules() error {
 		panic(err)
 	}
 
+	fsmInstance := fsmWrapper{fsm.NewFSM(
+		"base",
+		fsm.Events{
+			{Name: "start", Src: []string{"base"}, Dst: "injecting"},
+			{Name: "close", Src: []string{"injecting"}, Dst: "base"},
+		},
+		fsm.Callbacks{},
+	)}
+
 	lines := strings.Split(string(input), "\n")
 	var outputLines []string
 
 	for _, line := range lines {
-		outputLines = append(outputLines, line)
 		if fu.beginHosterBlockMatched([]byte(line)) {
+			err := fsmInstance.fsm.Event("start")
+			if err != nil {
+				panic(err)
+			}
+			outputLines = append(outputLines, hosterBlockHeader)
 			for _, rule := range rules {
 				ruleContent, err := fu.enabledRules.ReadRule(rule)
 				if err != nil {
@@ -80,6 +107,14 @@ func (fu *fileUtils) RefreshRules() error {
 				ruleLines := strings.Split(ruleContent, "\n")
 				outputLines = append(outputLines, ruleLines...)
 			}
+		}
+		outputLines = fsmInstance.StateAwareAppendLine(outputLines, line)
+		if fu.endHosterBlockMatched([]byte(line)) && fsmInstance.fsm.Can("close") {
+			err := fsmInstance.fsm.Event("close")
+			if err != nil {
+				panic(err)
+			}
+			outputLines = append(outputLines, hosterBlockFooter)
 		}
 	}
 
@@ -93,11 +128,15 @@ func (fu *fileUtils) RefreshRules() error {
 }
 
 const hosterHostsBlockPrefix string = "^\\# Added by Hoster"
+const endingHosterHostsBlockPrefix string = "^\\# End of section"
 
-const hosterBlock string = `
-# Added by Hoster
-# End of section
-`
+const hosterBlockHeader = "# Added by Hoster"
+const hosterBlockFooter = "# End of section"
+
+var hosterBlock = fmt.Sprintf(`
+%s
+%s
+`, hosterBlockHeader, hosterBlockFooter)
 
 func (fu *fileUtils) getEnvFile() (file *os.File) {
 	file, err := os.OpenFile(fu.envFile, os.O_APPEND|os.O_RDWR, 0644)
@@ -109,6 +148,14 @@ func (fu *fileUtils) getEnvFile() (file *os.File) {
 
 func (fu *fileUtils) beginHosterBlockMatched(lineBytes []byte) bool {
 	matched, err := regexp.Match(hosterHostsBlockPrefix, lineBytes)
+	if err != nil {
+		return false
+	}
+	return matched
+}
+
+func (fu *fileUtils) endHosterBlockMatched(lineBytes []byte) bool {
+	matched, err := regexp.Match(endingHosterHostsBlockPrefix, lineBytes)
 	if err != nil {
 		return false
 	}

@@ -98,23 +98,41 @@ func TestFileUtils_EnsureHosterBlock(t *testing.T) {
 }
 
 func TestFileutils_RefreshRules(t *testing.T) {
-	t.Run("Injects hakuna matata into empty rules file", func(t *testing.T) {
-		utilsInterface, targetHostsFile, cleanup := SetupFileUtils()
-		defer cleanup()
-		err := utilsInterface.(*fileUtils).EnsureHosterBlock()
-		assert.NoError(t, err)
+	t.Run("Injects hakuna matata host rule", func(t *testing.T) {
+		tests := map[string]func()(fUtils IFileUtils, file *os.File, cleanup func()){
+			"empty": func() (fUtils IFileUtils, file *os.File, cleanup func()) {
+				fUtils, file, cleanup = SetupFileUtils()
+				return
+			},
+			"existing block": func() (fUtils IFileUtils, file *os.File, cleanup func()) {
+				fUtils, file, cleanup = SetupFileUtils()
+				_, err := file.WriteString(sampleEnvFileExistingRules)
+				assert.NoError(t, err)
+				return
+			},
+		}
 
-		rulesMock := tmocks.EnabledRulesMockImplementation{}
-		rulesMock.On("GetAll").Return([]string{"project1.hosfile"}, nil)
-		rulesMock.On("ReadRule", "project1.hosfile").Return("127.0.0.1\thakuna.matata.org", nil)
-		utilsInterface.(*fileUtils).enabledRules = rulesMock
+		for testName, setupFunc := range tests {
+			t.Run(testName, func(t *testing.T) {
+				utilsInterface, targetHostsFile, cleanup := setupFunc()
+				defer cleanup()
+				err := utilsInterface.(*fileUtils).EnsureHosterBlock()
+				assert.NoError(t, err)
 
-		err = utilsInterface.RefreshRules()
-		assert.NoError(t, err)
+				rulesMock := tmocks.EnabledRulesMockImplementation{}
+				rulesMock.On("GetAll").Return([]string{"project1.hosfile"}, nil)
+				rulesMock.On("ReadRule", "project1.hosfile").Return("127.0.0.1\thakuna.matata.org", nil)
+				utilsInterface.(*fileUtils).enabledRules = rulesMock
 
-		fileBytes, err := ioutil.ReadFile(targetHostsFile.Name())
-		assert.NoError(t, err)
-		assert.Contains(t, string(fileBytes), "127.0.0.1\thakuna.matata.org")
+				err = utilsInterface.RefreshRules()
+				assert.NoError(t, err)
+
+				fileBytes, err := ioutil.ReadFile(targetHostsFile.Name())
+				assert.NoError(t, err)
+				assert.Contains(t, string(fileBytes), "127.0.0.1\thakuna.matata.org")
+				assert.NotContains(t, string(fileBytes), "127.0.0.1 marek2901.github.io")
+			})
+		}
 	})
 }
 
