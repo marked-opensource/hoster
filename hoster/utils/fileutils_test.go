@@ -99,7 +99,7 @@ func TestFileUtils_EnsureHosterBlock(t *testing.T) {
 
 func TestFileutils_RefreshRules(t *testing.T) {
 	t.Run("Injects hakuna matata host rule", func(t *testing.T) {
-		tests := map[string]func()(fUtils IFileUtils, file *os.File, cleanup func()){
+		tests := map[string]func() (fUtils IFileUtils, file *os.File, cleanup func()){
 			"empty": func() (fUtils IFileUtils, file *os.File, cleanup func()) {
 				fUtils, file, cleanup = SetupFileUtils()
 				return
